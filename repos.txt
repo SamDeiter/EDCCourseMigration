@@ -1,0 +1,22 @@
+SamDeiter/EDCCourseMigration		public	2026-04-08T14:42:54Z
+SamDeiter/LocalMind	A fully local, private AI coding assistant powered by Ollama + Qwen2.5-Coder. Runs entirely on your machine — no API keys, no cloud, no cost.	public	2026-04-08T14:37:02Z
+SamDeiter/TradeCommander	Stock & Crypto trading bot with premium web dashboard. Alpaca (stocks) + Coinbase (crypto).	private	2026-04-08T14:19:02Z
+SamDeiter/Unreal-Learning-Path-Tagging-System	Analyze user queries, tag them semantically, and generate personalized learning paths for solving Unreal Engine issues.	public	2026-04-08T02:38:55Z
+SamDeiter/UE5ReviewHub		private	2026-04-06T20:54:29Z
+SamDeiter/UE5QuestionGenerator	This is the Gemini web based app for making test questions	public	2026-04-04T02:17:31Z
+SamDeiter/Unreal-Learning-Path-Demo	Executive demo version of the UE5 Learning Path Builder — frozen snapshot for stakeholder review	public	2026-04-01T09:27:22Z
+SamDeiter/ArcadeDungeon	A game I am making	public	2026-03-21T00:59:37Z
+SamDeiter/UE5-RnD	R&D tracker for Unreal Engine 5 pedagogical and educational gaps research	public	2026-02-20T17:46:49Z
+SamDeiter/UE5ScenarioTracker		public	2026-02-17T22:12:16Z
+SamDeiter/Reviewport	UE5 Educational Tools Hub	public	2026-02-17T19:13:45Z
+SamDeiter/UE5LMSMaterials		public	2026-02-12T17:45:04Z
+SamDeiter/agent-workflows	Centralized agent config hub - shared workflows, rules, and skills for all projects	public	2026-02-09T23:41:19Z
+SamDeiter/UE5LMSBlueprint	Creating Blueprints for testing	public	2026-02-09T23:39:26Z
+SamDeiter/family-household-manager	Smart grocery automation for large households - AI-powered inventory tracking, multi-store price comparison, and one-click ordering	private	2026-02-09T23:33:29Z
+SamDeiter/context-monitor	Token usage context monitor widget with circular visualization	public	2026-02-09T23:32:50Z
+SamDeiter/KitCheck	Android app to ensure you have all your sports gear before heading out	private	2026-02-09T23:32:47Z
+SamDeiter/UnrealKnowledgeEngine	Exception-gated autonomous knowledge graph for Unreal Engine 5 documentation	public	2026-02-09T23:30:45Z
+SamDeiter/antigravity-mcp-server	Extracted Antigravity MCP Server from UE5QuestionGenerator	private	2026-02-09T23:30:34Z
+SamDeiter/electrician-toolbox	The Modern Electrician's Companion - A mobile-first PWA with offline electrical calculators and NEC reference	private	2025-12-30T02:09:14Z
+SamDeiter/Builds	This is for final deployment builds	private	2025-11-14T16:43:22Z
+SamDeiter/UnrealEngine	Unreal Engine source code	private, fork	2015-03-22T02:17:09Z
