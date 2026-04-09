@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CheckCircle, Circle, Clipboard, Download, Plus, 
-  ChevronRight, ChevronLeft, Save, LayoutList, 
-  Settings, FolderUp, Link as LinkIcon, User, Tag
+import {
+  CheckCircle, Circle, Clipboard, Download, Plus,
+  ChevronRight, ChevronLeft, Save, LayoutList,
+  Settings, FolderUp, Link as LinkIcon, User, Tag,
+  AlertCircle
 } from 'lucide-react';
 
 // --- Constants ---
@@ -15,6 +16,11 @@ const CATEGORIES = [
 
 const ENTITY_TYPES = ["Course Module", "Tutorial"];
 const APPLICATIONS = ["Unreal Engine", "MetaHuman", "UEFN", "Twinmotion", "RealityCapture"];
+const INDUSTRIES = [
+  "Games", "Film & Television", "Architecture", "Automotive",
+  "Manufacturing", "Simulation", "Visualization", "Broadcast & Live Events",
+  "Advertising", "Education", "AEC"
+];
 
 const INITIAL_MODULE_STATE = {
   id: '',
@@ -28,7 +34,7 @@ const INITIAL_MODULE_STATE = {
   colH_entityType: '',
   colI_application: '',
   colJ_softwareVersion: '',
-  colK_industry: '',
+  colK_industry: [],
   colL_thumbLink: '',
   colM_bannerLink: '',
   colO_videoLink: '',
@@ -64,14 +70,11 @@ const calculateProgress = (mod) => {
     'colL_thumbLink', 'colM_bannerLink', 'colO_videoLink'
   ];
   const filled = requiredFields.filter(field => mod[field] && mod[field].trim() !== '').length;
-  
-  // Also count phase 5 checkboxes
+
   let extraScore = 0;
   if(mod.p5_folderCreated) extraScore++;
-  if(mod.p5_bannerCreated) extraScore++;
-  if(mod.p5_thumbCreated) extraScore++;
-  
-  return Math.round(((filled + extraScore) / (requiredFields.length + 3)) * 100);
+
+  return Math.round(((filled + extraScore) / (requiredFields.length + 1)) * 100);
 };
 
 export default function App() {
@@ -80,21 +83,39 @@ export default function App() {
   const [activePhase, setActivePhase] = useState(1);
   const [view, setView] = useState('dashboard'); // 'dashboard' | 'editor'
 
+  // Persistent state carried over between modules within the same course
+  const [persistentState, setPersistentState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('courseProcessingPersistent');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  // Sync persistent state to localStorage
+  useEffect(() => {
+    localStorage.setItem('courseProcessingPersistent', JSON.stringify(persistentState));
+  }, [persistentState]);
+
   // --- Handlers ---
   const handleCreateNew = () => {
-    const newMod = { 
-      ...INITIAL_MODULE_STATE, 
+    const newMod = {
+      ...INITIAL_MODULE_STATE,
       id: Date.now().toString(),
       // Carry over course info from the last module if it exists to speed up data entry
       colA_courseNumber: modules.length > 0 ? modules[0].colA_courseNumber : '',
       colB_courseName: modules.length > 0 ? modules[0].colB_courseName : '',
+      // Auto-fill from persistent state (Phase 3 & 4 carryover)
+      colE_hashId: persistentState.colE_hashId || '',
+      colF_username: persistentState.colF_username || '',
+      colH_entityType: persistentState.colH_entityType || '',
+      colI_application: persistentState.colI_application || '',
     };
     setCurrentModule(newMod);
     setActivePhase(1);
     setView('editor');
   };
 
-  const handleSaveModule = () => {
+  const saveModuleToList = () => {
     if (!currentModule) return;
     setModules(prev => {
       const exists = prev.find(m => m.id === currentModule.id);
@@ -103,6 +124,29 @@ export default function App() {
       }
       return [currentModule, ...prev];
     });
+  };
+
+  const handleSaveModule = () => {
+    saveModuleToList();
+    setView('dashboard');
+  };
+
+  const handleFinishModule = () => {
+    saveModuleToList();
+    // Persist fields for the next module in the same course
+    setPersistentState({
+      colE_hashId: currentModule.colE_hashId,
+      colF_username: currentModule.colF_username,
+      colH_entityType: currentModule.colH_entityType,
+      colI_application: currentModule.colI_application,
+    });
+    setView('dashboard');
+  };
+
+  const handleFinishCourse = () => {
+    saveModuleToList();
+    // Clear persistent state so next module starts fresh
+    setPersistentState({});
     setView('dashboard');
   };
 
@@ -119,6 +163,60 @@ export default function App() {
     });
   };
 
+  const toggleIndustry = (industry) => {
+    setCurrentModule(prev => {
+      const current = prev.colK_industry || [];
+      const updated = current.includes(industry)
+        ? current.filter(i => i !== industry)
+        : [...current, industry];
+      return { ...prev, colK_industry: updated };
+    });
+  };
+
+  // --- Validation ---
+  const PHASE_REQUIRED_FIELDS = {
+    1: [
+      { key: 'colA_courseNumber', label: 'Course Number' },
+      { key: 'colB_courseName', label: 'Course Name' },
+      { key: 'colC_moduleTitle', label: 'Module Title' },
+    ],
+    2: [
+      { key: 'colD_description', label: 'Description' },
+    ],
+    3: [
+      { key: 'colE_hashId', label: 'HashID' },
+      { key: 'colF_username', label: 'Username' },
+    ],
+    4: [
+      { key: 'colH_entityType', label: 'Entity Type' },
+      { key: 'colI_application', label: 'Application' },
+    ],
+    5: [
+      { key: 'p5_folderCreated', label: 'Folder Setup', isCheckbox: true },
+    ],
+    6: [
+      { key: 'colL_thumbLink', label: 'Thumbnail Link' },
+      { key: 'colM_bannerLink', label: 'Banner Link' },
+      { key: 'colO_videoLink', label: 'Video Share Link' },
+    ],
+  };
+
+  const getMissingFields = (phaseNum) => {
+    if (!currentModule) return [];
+    return PHASE_REQUIRED_FIELDS[phaseNum].filter(f => {
+      const val = currentModule[f.key];
+      if (f.isCheckbox) return !val;
+      return !val || (typeof val === 'string' && val.trim() === '');
+    });
+  };
+
+  const isFieldMissing = (key) => {
+    if (!currentModule) return false;
+    const val = currentModule[key];
+    if (typeof val === 'boolean') return !val;
+    return !val || (typeof val === 'string' && val.trim() === '');
+  };
+
   const exportCSV = () => {
     const headers = [
       "A: Course Number", "B: Course Name", "C: Module Title", "D: Description", 
@@ -130,7 +228,7 @@ export default function App() {
     const rows = modules.map(m => [
       `"${m.colA_courseNumber}"`, `"${m.colB_courseName}"`, `"${m.colC_moduleTitle}"`, `"${m.colD_description.replace(/"/g, '""')}"`,
       `"${m.colE_hashId}"`, `"${m.colF_username}"`, `"${m.colG_categories.join(', ')}"`, `"${m.colH_entityType}"`,
-      `"${m.colI_application}"`, `"${m.colJ_softwareVersion}"`, `"${m.colK_industry}"`,
+      `"${m.colI_application}"`, `"${m.colJ_softwareVersion}"`, `"${Array.isArray(m.colK_industry) ? m.colK_industry.join(', ') : m.colK_industry}"`,
       `"${m.colL_thumbLink}"`, `"${m.colM_bannerLink}"`, `""`, `"${m.colO_videoLink}"`
     ]);
 
@@ -146,15 +244,6 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
   };
-
-  // --- Dynamic Naming Helpers ---
-  const generateInitials = (courseName) => {
-    if(!courseName) return "XXX";
-    return courseName.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase();
-  };
-  const courseInitials = generateInitials(currentModule?.colB_courseName);
-  const bannerNameStr = `${courseInitials}${currentModule?.colA_courseNumber || '000'}BANNER`;
-  const thumbNameStr = `M[XX]${courseInitials}${currentModule?.colA_courseNumber || '000'}`;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
@@ -256,22 +345,37 @@ export default function App() {
                     { num: 4, title: 'Categorization', icon: <Tag size={18}/> },
                     { num: 5, title: 'Visual Assets', icon: <FolderUp size={18}/> },
                     { num: 6, title: 'Final Linking', icon: <LinkIcon size={18}/> },
-                  ].map(phase => (
-                    <button
-                      key={phase.num}
-                      onClick={() => setActivePhase(phase.num)}
-                      className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        activePhase === phase.num 
-                          ? 'bg-indigo-50 text-indigo-700' 
-                          : 'text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className={`${activePhase === phase.num ? 'text-indigo-600' : 'text-slate-400'}`}>
-                        {phase.icon}
-                      </span>
-                      <span>Phase {phase.num}</span>
-                    </button>
-                  ))}
+                  ].map(phase => {
+                    const missing = getMissingFields(phase.num);
+                    const phaseComplete = PHASE_REQUIRED_FIELDS[phase.num].length > 0 && missing.length === 0;
+                    const hasRequired = PHASE_REQUIRED_FIELDS[phase.num].length > 0;
+                    return (
+                      <button
+                        key={phase.num}
+                        onClick={() => setActivePhase(phase.num)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          activePhase === phase.num
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className={`${activePhase === phase.num ? 'text-indigo-600' : 'text-slate-400'}`}>
+                            {phase.icon}
+                          </span>
+                          <span>Phase {phase.num}</span>
+                        </div>
+                        {hasRequired && (
+                          phaseComplete
+                            ? <CheckCircle size={16} className="text-green-500" />
+                            : <span className="flex items-center space-x-1 text-amber-500">
+                                <AlertCircle size={14} />
+                                <span className="text-xs">{missing.length}</span>
+                              </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </nav>
                 
                 <div className="mt-8 pt-4 border-t border-slate-100">
@@ -303,12 +407,14 @@ export default function App() {
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Course Number (Col A) *</label>
                           <input type="text" value={currentModule.colA_courseNumber} onChange={(e) => handleUpdateField('colA_courseNumber', e.target.value)}
-                            className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="e.g. CNH100.01" />
+                            className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colA_courseNumber') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="e.g. CNH100.01" />
+                          {isFieldMissing('colA_courseNumber') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Course Name (Col B) *</label>
                           <input type="text" value={currentModule.colB_courseName} onChange={(e) => handleUpdateField('colB_courseName', e.target.value)}
-                            className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="e.g. Intro to Rendering" />
+                            className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colB_courseName') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="e.g. Intro to Rendering" />
+                          {isFieldMissing('colB_courseName') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                         </div>
                       </div>
 
@@ -316,7 +422,8 @@ export default function App() {
                         <label className="block text-sm font-medium text-slate-700 mb-1">Module Title (Col C) *</label>
                         <p className="text-xs text-amber-600 mb-2 font-medium">Note: Transcribe exact text from Title Slide. Do NOT use file name.</p>
                         <input type="text" value={currentModule.colC_moduleTitle} onChange={(e) => handleUpdateField('colC_moduleTitle', e.target.value)}
-                          className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Exact on-screen title" />
+                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colC_moduleTitle') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Exact on-screen title" />
+                        {isFieldMissing('colC_moduleTitle') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
                     </div>
                   </div>
@@ -333,10 +440,10 @@ export default function App() {
                     <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg mb-6 flex items-start justify-between">
                       <div>
                         <h4 className="text-sm font-bold text-indigo-800">Prompt for AI Tool:</h4>
-                        <p className="text-indigo-600 italic text-sm mt-1">"Create a description for this video that is less than 1000 characters."</p>
+                        <p className="text-indigo-600 italic text-sm mt-1">"Create a description for this video that is one short sentence."</p>
                       </div>
                       <button 
-                        onClick={() => copyToClipboard("Create a description for this video that is less than 1000 characters.")}
+                        onClick={() => copyToClipboard("Create a description for this video that is one short sentence.")}
                         className="bg-white border border-indigo-200 text-indigo-700 p-2 rounded-md hover:bg-indigo-100 transition shadow-sm"
                         title="Copy Prompt"
                       >
@@ -345,19 +452,20 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Generated Description (Col D)</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Generated Description (Col D) *</label>
                       <div className="relative">
-                        <textarea 
-                          value={currentModule.colD_description} 
+                        <textarea
+                          value={currentModule.colD_description}
                           onChange={(e) => handleUpdateField('colD_description', e.target.value)}
                           rows="6"
-                          className="w-full border border-slate-300 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" 
-                          placeholder="Paste AI output here..." 
+                          className={`w-full border rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colD_description') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}
+                          placeholder="Paste AI output here..."
                         />
                         <div className={`absolute bottom-3 right-3 text-xs font-medium ${currentModule.colD_description.length > 1000 ? 'text-red-500' : 'text-slate-400'}`}>
                           {currentModule.colD_description.length} / 1000 chars
                         </div>
                       </div>
+                      {isFieldMissing('colD_description') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                     </div>
                   </div>
                 )}
@@ -377,15 +485,17 @@ export default function App() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">HashID (Col E)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">HashID (Col E) *</label>
                         <input type="text" value={currentModule.colE_hashId} onChange={(e) => handleUpdateField('colE_hashId', e.target.value)}
-                          className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono" placeholder="Paste HashID" />
+                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono ${isFieldMissing('colE_hashId') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Paste HashID" />
+                        {isFieldMissing('colE_hashId') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Username (Col F)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Username (Col F) *</label>
                         <input type="text" value={currentModule.colF_username} onChange={(e) => handleUpdateField('colF_username', e.target.value)}
-                          className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Paste Username" />
+                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colF_username') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Paste Username" />
+                        {isFieldMissing('colF_username') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
                     </div>
                   </div>
@@ -416,30 +526,39 @@ export default function App() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-slate-100">
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Entity Type (Col H)</label>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Entity Type (Col H) *</label>
                           <select value={currentModule.colH_entityType} onChange={(e) => handleUpdateField('colH_entityType', e.target.value)}
-                            className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                            className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white ${isFieldMissing('colH_entityType') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}>
                             <option value="">Select type...</option>
                             {ENTITY_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
                           </select>
+                          {isFieldMissing('colH_entityType') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                         </div>
                         <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Application (Col I)</label>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">Application (Col I) *</label>
                           <select value={currentModule.colI_application} onChange={(e) => handleUpdateField('colI_application', e.target.value)}
-                            className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                            className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white ${isFieldMissing('colI_application') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}>
                             <option value="">Select application...</option>
                             {APPLICATIONS.map(app => <option key={app} value={app}>{app}</option>)}
                           </select>
+                          {isFieldMissing('colI_application') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-bold text-slate-700 mb-1">Software Version (Col J)</label>
                           <input type="text" value={currentModule.colJ_softwareVersion} onChange={(e) => handleUpdateField('colJ_softwareVersion', e.target.value)}
                             className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="e.g. 5.5" />
                         </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-1">Industry (Col K)</label>
-                          <input type="text" value={currentModule.colK_industry} onChange={(e) => handleUpdateField('colK_industry', e.target.value)}
-                            className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="e.g. Games, Architecture" />
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-bold text-slate-700 mb-2">Industry (Col K) - Select all that apply</label>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {INDUSTRIES.map(ind => (
+                              <label key={ind} className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-slate-50 border border-transparent hover:border-slate-200 transition">
+                                <input type="checkbox" checked={(currentModule.colK_industry || []).includes(ind)} onChange={() => toggleIndustry(ind)}
+                                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+                                <span className="text-sm text-slate-700">{ind}</span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
@@ -458,7 +577,8 @@ export default function App() {
                     <div className="space-y-6">
                       
                       {/* Folder Setup */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                      <div className={`border rounded-lg p-4 ${isFieldMissing('p5_folderCreated') ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'}`}>
+                        {isFieldMissing('p5_folderCreated') && <p className="text-xs text-amber-600 mb-2 font-medium">Not yet completed</p>}
                         <label className="flex items-start space-x-3 cursor-pointer">
                           <input type="checkbox" checked={currentModule.p5_folderCreated} onChange={(e) => handleUpdateField('p5_folderCreated', e.target.checked)}
                             className="mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
@@ -472,44 +592,6 @@ export default function App() {
                         </label>
                       </div>
 
-                      {/* Banner */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <label className="flex items-start space-x-3 cursor-pointer">
-                          <input type="checkbox" checked={currentModule.p5_bannerCreated} onChange={(e) => handleUpdateField('p5_bannerCreated', e.target.checked)}
-                            className="mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
-                          <div>
-                            <span className="block font-bold text-slate-800">2. Banner Generation</span>
-                            <span className="block text-sm text-slate-600">Exported Slide 2 as JPEG. Target File Name:</span>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <code className="bg-white border border-slate-300 px-2 py-1 rounded text-sm text-indigo-700 font-mono">
-                                {bannerNameStr}
-                              </code>
-                              <button onClick={(e) => { e.preventDefault(); copyToClipboard(bannerNameStr); }} className="text-slate-400 hover:text-indigo-600" title="Copy Filename"><Clipboard size={16}/></button>
-                            </div>
-                          </div>
-                        </label>
-                      </div>
-
-                      {/* Thumbnail */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <label className="flex items-start space-x-3 cursor-pointer">
-                          <input type="checkbox" checked={currentModule.p5_thumbCreated} onChange={(e) => handleUpdateField('p5_thumbCreated', e.target.checked)}
-                            className="mt-1 w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
-                          <div>
-                            <span className="block font-bold text-slate-800">3. Thumbnail Generation</span>
-                            <span className="block text-sm text-slate-600 mb-1">Exported Slide 4 as JPEG. Target File Name format:</span>
-                            <div className="flex items-center space-x-2">
-                              <code className="bg-white border border-slate-300 px-2 py-1 rounded text-sm text-indigo-700 font-mono">
-                                {thumbNameStr}
-                              </code>
-                              <button onClick={(e) => { e.preventDefault(); copyToClipboard(thumbNameStr); }} className="text-slate-400 hover:text-indigo-600" title="Copy Filename"><Clipboard size={16}/></button>
-                            </div>
-                            <div className="mt-2 text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-100">
-                              Reminder: Update Purple text to <strong>{currentModule.colB_courseName || '[Course Name]'}</strong> and White text to <strong>{currentModule.colC_moduleTitle || '[Module Title]'}</strong>
-                            </div>
-                          </div>
-                        </label>
-                      </div>
 
                     </div>
                   </div>
@@ -525,20 +607,23 @@ export default function App() {
 
                     <div className="space-y-5">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Module Thumbnail Link (Col L)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Module Thumbnail Link (Col L) *</label>
                         <input type="url" value={currentModule.colL_thumbLink} onChange={(e) => handleUpdateField('colL_thumbLink', e.target.value)}
-                          className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Google Drive Link Chip..." />
+                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colL_thumbLink') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Google Drive Link Chip..." />
+                        {isFieldMissing('colL_thumbLink') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Banner Link (Col M)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Banner Link (Col M) *</label>
                         <input type="url" value={currentModule.colM_bannerLink} onChange={(e) => handleUpdateField('colM_bannerLink', e.target.value)}
-                          className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Google Drive Link Chip..." />
+                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colM_bannerLink') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Google Drive Link Chip..." />
+                        {isFieldMissing('colM_bannerLink') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
                       <div className="pt-4 border-t border-slate-100">
-                        <label className="block text-sm font-bold text-indigo-700 mb-1">Video Share Link (Col O)</label>
+                        <label className="block text-sm font-bold text-indigo-700 mb-1">Video Share Link (Col O) *</label>
                         <p className="text-xs text-slate-500 mb-2">Specific share link for the video file from the source VIDEOS folder.</p>
                         <input type="url" value={currentModule.colO_videoLink} onChange={(e) => handleUpdateField('colO_videoLink', e.target.value)}
-                          className="w-full border border-indigo-300 bg-indigo-50 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Paste Video Share Link here..." />
+                          className={`w-full border rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colO_videoLink') ? 'border-amber-400 bg-amber-50' : 'border-indigo-300 bg-indigo-50'}`} placeholder="Paste Video Share Link here..." />
+                        {isFieldMissing('colO_videoLink') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
                     </div>
                   </div>
@@ -559,19 +644,27 @@ export default function App() {
                 </button>
 
                 {activePhase < 6 ? (
-                  <button 
+                  <button
                     onClick={() => setActivePhase(Math.min(6, activePhase + 1))}
                     className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm"
                   >
                     Next Phase <ChevronRight size={20} className="ml-1"/>
                   </button>
                 ) : (
-                  <button 
-                    onClick={handleSaveModule}
-                    className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition shadow-sm"
-                  >
-                    <CheckCircle size={20} className="mr-2"/> Finish & Save
-                  </button>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={handleFinishModule}
+                      className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm"
+                    >
+                      <CheckCircle size={20} className="mr-2"/> Finish Module
+                    </button>
+                    <button
+                      onClick={handleFinishCourse}
+                      className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition shadow-sm"
+                    >
+                      <CheckCircle size={20} className="mr-2"/> Finish Course
+                    </button>
+                  </div>
                 )}
               </div>
 
