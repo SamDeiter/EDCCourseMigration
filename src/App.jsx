@@ -657,16 +657,16 @@ export default function App() {
                 ) : (
                   <div className="flex items-center space-x-3">
                     <button
-                      onClick={handleFinishModule}
-                      className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm"
-                    >
-                      <CheckCircle size={20} className="mr-2"/> Finish Module
-                    </button>
-                    <button
                       onClick={handleFinishCourse}
                       className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition shadow-sm"
                     >
                       <CheckCircle size={20} className="mr-2"/> Finish Course
+                    </button>
+                    <button
+                      onClick={handleFinishModule}
+                      className="flex items-center px-6 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm"
+                    >
+                      <CheckCircle size={20} className="mr-2"/> Finish Module
                     </button>
                   </div>
                 )}
