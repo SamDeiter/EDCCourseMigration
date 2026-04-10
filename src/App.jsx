@@ -248,6 +248,7 @@ export default function App() {
         <div className="flex items-center space-x-2 font-bold text-xl cursor-pointer" onClick={() => setView('dashboard')}>
           <LayoutList size={24} />
           <span>Course Processing Tracker</span>
+          <span className="text-xs font-normal text-indigo-200 ml-3">v{__APP_VERSION__}</span>
         </div>
         <div className="flex space-x-3">
           {view === 'dashboard' && (

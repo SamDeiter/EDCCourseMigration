@@ -1,14 +1,14 @@
 {
   "name": "edccoursemigration",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "npm version patch --no-git-tag-version && npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
