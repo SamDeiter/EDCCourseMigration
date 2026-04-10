@@ -22,21 +22,20 @@ const INDUSTRIES = [
   "Advertising", "Education", "AEC"
 ];
 
+const USERNAME_OPTIONS = ['Ed_Bennett', 'sean.lake', 'BrianJPohl', 'Sam_Deiter', 'KevinMiller', 'THATRYANMANNING', 'jh_epic'];
+
 const INITIAL_MODULE_STATE = {
   id: '',
   colA_courseNumber: '',
   colB_courseName: '',
   colC_moduleTitle: '',
   colD_description: '',
-  colE_hashId: '',
   colF_username: '',
   colG_categories: [],
   colH_entityType: '',
   colI_application: '',
   colJ_softwareVersion: '',
   colK_industry: [],
-  colL_thumbLink: '',
-  colM_bannerLink: '',
   colO_videoLink: '',
   // Phase 5 Tracking
   p5_folderCreated: false,
@@ -67,7 +66,7 @@ const calculateProgress = (mod) => {
   const requiredFields = [
     'colA_courseNumber', 'colB_courseName', 'colC_moduleTitle',
     'colD_description', 'colH_entityType', 'colI_application',
-    'colL_thumbLink', 'colM_bannerLink', 'colO_videoLink'
+    'colO_videoLink'
   ];
   const filled = requiredFields.filter(field => mod[field] && mod[field].trim() !== '').length;
 
@@ -82,6 +81,7 @@ export default function App() {
   const [currentModule, setCurrentModule] = useState(null);
   const [activePhase, setActivePhase] = useState(1);
   const [view, setView] = useState('dashboard'); // 'dashboard' | 'editor'
+  const [isOtherUsername, setIsOtherUsername] = useState(false);
 
   // Persistent state carried over between modules within the same course
   const [persistentState, setPersistentState] = useState(() => {
@@ -105,12 +105,12 @@ export default function App() {
       colA_courseNumber: modules.length > 0 ? modules[0].colA_courseNumber : '',
       colB_courseName: modules.length > 0 ? modules[0].colB_courseName : '',
       // Auto-fill from persistent state (Phase 3 & 4 carryover)
-      colE_hashId: persistentState.colE_hashId || '',
       colF_username: persistentState.colF_username || '',
       colH_entityType: persistentState.colH_entityType || '',
       colI_application: persistentState.colI_application || '',
     };
     setCurrentModule(newMod);
+    setIsOtherUsername(!USERNAME_OPTIONS.includes(newMod.colF_username) && newMod.colF_username !== '');
     setActivePhase(1);
     setView('editor');
   };
@@ -135,7 +135,6 @@ export default function App() {
     saveModuleToList();
     // Persist fields for the next module in the same course
     setPersistentState({
-      colE_hashId: currentModule.colE_hashId,
       colF_username: currentModule.colF_username,
       colH_entityType: currentModule.colH_entityType,
       colI_application: currentModule.colI_application,
@@ -184,7 +183,6 @@ export default function App() {
       { key: 'colD_description', label: 'Description' },
     ],
     3: [
-      { key: 'colE_hashId', label: 'HashID' },
       { key: 'colF_username', label: 'Username' },
     ],
     4: [
@@ -195,8 +193,6 @@ export default function App() {
       { key: 'p5_folderCreated', label: 'Folder Setup', isCheckbox: true },
     ],
     6: [
-      { key: 'colL_thumbLink', label: 'Thumbnail Link' },
-      { key: 'colM_bannerLink', label: 'Banner Link' },
       { key: 'colO_videoLink', label: 'Video Share Link' },
     ],
   };
@@ -219,17 +215,17 @@ export default function App() {
 
   const exportCSV = () => {
     const headers = [
-      "A: Course Number", "B: Course Name", "C: Module Title", "D: Description", 
-      "E: HashID", "F: Username", "G: Categories", "H: Entity Type", 
-      "I: Application", "J: Software Version", "K: Industry", 
-      "L: Thumbnail Link", "M: Banner Link", "N: (Reserved)", "O: Video Share Link"
+      "A: Course Number", "B: Course Name", "C: Module Title", "D: Description",
+      "E: (Reserved)", "F: Username", "G: Categories", "H: Entity Type",
+      "I: Application", "J: Software Version", "K: Industry",
+      "L: (Reserved)", "M: (Reserved)", "N: (Reserved)", "O: Video Share Link"
     ];
 
     const rows = modules.map(m => [
       `"${m.colA_courseNumber}"`, `"${m.colB_courseName}"`, `"${m.colC_moduleTitle}"`, `"${m.colD_description.replace(/"/g, '""')}"`,
-      `"${m.colE_hashId}"`, `"${m.colF_username}"`, `"${m.colG_categories.join(', ')}"`, `"${m.colH_entityType}"`,
+      `""`, `"${m.colF_username}"`, `"${m.colG_categories.join(', ')}"`, `"${m.colH_entityType}"`,
       `"${m.colI_application}"`, `"${m.colJ_softwareVersion}"`, `"${Array.isArray(m.colK_industry) ? m.colK_industry.join(', ') : m.colK_industry}"`,
-      `"${m.colL_thumbLink}"`, `"${m.colM_bannerLink}"`, `""`, `"${m.colO_videoLink}"`
+      `""`, `""`, `""`, `"${m.colO_videoLink}"`
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -316,7 +312,7 @@ export default function App() {
                           </td>
                           <td className="p-4 text-right">
                             <button 
-                              onClick={() => { setCurrentModule(mod); setActivePhase(1); setView('editor'); }}
+                              onClick={() => { setCurrentModule(mod); setIsOtherUsername(!USERNAME_OPTIONS.includes(mod.colF_username) && mod.colF_username !== ''); setActivePhase(1); setView('editor'); }}
                               className="text-indigo-600 hover:text-indigo-800 font-medium text-sm"
                             >
                               Edit / Continue
@@ -485,16 +481,35 @@ export default function App() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">HashID (Col E) *</label>
-                        <input type="text" value={currentModule.colE_hashId} onChange={(e) => handleUpdateField('colE_hashId', e.target.value)}
-                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono ${isFieldMissing('colE_hashId') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Paste HashID" />
-                        {isFieldMissing('colE_hashId') && <p className="text-xs text-amber-600 mt-1">Required</p>}
-                      </div>
-
-                      <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Username (Col F) *</label>
-                        <input type="text" value={currentModule.colF_username} onChange={(e) => handleUpdateField('colF_username', e.target.value)}
-                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colF_username') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Paste Username" />
+                        <select
+                          value={USERNAME_OPTIONS.includes(currentModule.colF_username) && !isOtherUsername ? currentModule.colF_username : (isOtherUsername || (!USERNAME_OPTIONS.includes(currentModule.colF_username) && currentModule.colF_username) ? '__other__' : '')}
+                          onChange={(e) => {
+                            if (e.target.value === '__other__') {
+                              setIsOtherUsername(true);
+                              handleUpdateField('colF_username', '');
+                            } else {
+                              setIsOtherUsername(false);
+                              handleUpdateField('colF_username', e.target.value);
+                            }
+                          }}
+                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colF_username') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}
+                        >
+                          <option value="">Select a username...</option>
+                          {USERNAME_OPTIONS.map(name => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                          <option value="__other__">Other...</option>
+                        </select>
+                        {(isOtherUsername || (!USERNAME_OPTIONS.includes(currentModule.colF_username) && currentModule.colF_username !== '')) && (
+                          <input
+                            type="text"
+                            value={currentModule.colF_username}
+                            onChange={(e) => handleUpdateField('colF_username', e.target.value)}
+                            className={`w-full border rounded-md p-2 mt-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colF_username') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}
+                            placeholder="Enter custom username..."
+                          />
+                        )}
                         {isFieldMissing('colF_username') && <p className="text-xs text-amber-600 mt-1">Required</p>}
                       </div>
                     </div>
@@ -607,18 +622,6 @@ export default function App() {
 
                     <div className="space-y-5">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Module Thumbnail Link (Col L) *</label>
-                        <input type="url" value={currentModule.colL_thumbLink} onChange={(e) => handleUpdateField('colL_thumbLink', e.target.value)}
-                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colL_thumbLink') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Google Drive Link Chip..." />
-                        {isFieldMissing('colL_thumbLink') && <p className="text-xs text-amber-600 mt-1">Required</p>}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Banner Link (Col M) *</label>
-                        <input type="url" value={currentModule.colM_bannerLink} onChange={(e) => handleUpdateField('colM_bannerLink', e.target.value)}
-                          className={`w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${isFieldMissing('colM_bannerLink') ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Google Drive Link Chip..." />
-                        {isFieldMissing('colM_bannerLink') && <p className="text-xs text-amber-600 mt-1">Required</p>}
-                      </div>
-                      <div className="pt-4 border-t border-slate-100">
                         <label className="block text-sm font-bold text-indigo-700 mb-1">Video Share Link (Col O) *</label>
                         <p className="text-xs text-slate-500 mb-2">Specific share link for the video file from the source VIDEOS folder.</p>
                         <input type="url" value={currentModule.colO_videoLink} onChange={(e) => handleUpdateField('colO_videoLink', e.target.value)}
