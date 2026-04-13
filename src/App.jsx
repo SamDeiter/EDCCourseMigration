@@ -104,10 +104,11 @@ export default function App() {
       // Carry over course info from the last module if it exists to speed up data entry
       colA_courseNumber: modules.length > 0 ? modules[0].colA_courseNumber : '',
       colB_courseName: modules.length > 0 ? modules[0].colB_courseName : '',
-      // Auto-fill from persistent state (Phase 3 & 4 carryover)
+      // Auto-fill from persistent state (Phase 3, 4, 5 carryover)
       colF_username: persistentState.colF_username || '',
       colH_entityType: persistentState.colH_entityType || '',
       colI_application: persistentState.colI_application || '',
+      p5_folderCreated: persistentState.p5_folderCreated || false,
     };
     setCurrentModule(newMod);
     setIsOtherUsername(!USERNAME_OPTIONS.includes(newMod.colF_username) && newMod.colF_username !== '');
@@ -138,6 +139,7 @@ export default function App() {
       colF_username: currentModule.colF_username,
       colH_entityType: currentModule.colH_entityType,
       colI_application: currentModule.colI_application,
+      p5_folderCreated: currentModule.p5_folderCreated,
     });
     setView('dashboard');
   };
@@ -221,7 +223,7 @@ export default function App() {
       "L: (Reserved)", "M: (Reserved)", "N: (Reserved)", "O: Video Share Link"
     ];
 
-    const rows = modules.map(m => [
+    const rows = [...modules].reverse().map(m => [
       `"${m.colA_courseNumber}"`, `"${m.colB_courseName}"`, `"${m.colC_moduleTitle}"`, `"${m.colD_description.replace(/"/g, '""')}"`,
       `""`, `"${m.colF_username}"`, `"${m.colG_categories.join(', ')}"`, `"${m.colH_entityType}"`,
       `"${m.colI_application}"`, `"${m.colJ_softwareVersion}"`, `"${Array.isArray(m.colK_industry) ? m.colK_industry.join(', ') : m.colK_industry}"`,
